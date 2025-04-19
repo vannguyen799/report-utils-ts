@@ -31,3 +31,20 @@ logger.error("This is an error message");
 setLogLevel("debug");
 logger.debug("This is a debug message");
 ```
+
+
+## Account Storage API
+
+```js
+import { AccountStorageApi } from "@vannb/report-utils";
+
+const storage = new AccountStorageApi({
+  authToken: "",
+  host: "",
+  projectName: "",
+});
+
+console.log(await storage.getAccount("abc"));
+console.log(await storage.updateValues("abc", { name: "abc" }));
+
+```
