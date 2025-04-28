@@ -2,7 +2,6 @@ import fetch from "node-fetch";
 import { Semaphore } from "async-mutex";
 export class AccountStorageApi {
     constructor(opts) {
-        this.sp = new Semaphore(50);
         this.opts = opts;
         if (!opts.authToken) {
             throw new Error("authToken is required");
@@ -24,6 +23,7 @@ export class AccountStorageApi {
         if (!opts.projectName) {
             throw new Error("projectName is required");
         }
+        this.sp = new Semaphore(opts.semaphoreValue || 50);
     }
     async getAccount(account) {
         const url = `${this.opts.host}/api/values?account=${account}&project=${this.opts.projectName}`;

@@ -4,6 +4,7 @@ export type AccountStorageApiOptions = {
   authToken: string;
   host: string;
   projectName: string;
+  semaphoreValue?: number;
   fetchOptions?: RequestInit;
 };
 type AccountApiResponse<T extends { [key: string]: any }> = {
@@ -18,7 +19,7 @@ type AccountApiResponse<T extends { [key: string]: any }> = {
 
 export class AccountStorageApi<T extends { [key: string]: any }> {
   private opts: AccountStorageApiOptions;
-  private sp = new Semaphore(50);
+  private sp: Semaphore;
   constructor(opts: AccountStorageApiOptions) {
     this.opts = opts;
     if (!opts.authToken) {
@@ -39,6 +40,8 @@ export class AccountStorageApi<T extends { [key: string]: any }> {
     if (!opts.projectName) {
       throw new Error("projectName is required");
     }
+
+    this.sp = new Semaphore(opts.semaphoreValue || 50);
   }
 
   async getAccount(account: string): Promise<AccountApiResponse<T>> {

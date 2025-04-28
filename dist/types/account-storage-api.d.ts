@@ -3,6 +3,7 @@ export type AccountStorageApiOptions = {
     authToken: string;
     host: string;
     projectName: string;
+    semaphoreValue?: number;
     fetchOptions?: RequestInit;
 };
 type AccountApiResponse<T extends {
