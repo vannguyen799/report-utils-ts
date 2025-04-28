@@ -1,5 +1,8 @@
+import fetch from "node-fetch";
+import { Semaphore } from "async-mutex";
 export class AccountStorageApi {
     constructor(opts) {
+        this.sp = new Semaphore(50);
         this.opts = opts;
         if (!opts.authToken) {
             throw new Error("authToken is required");
@@ -25,18 +28,29 @@ export class AccountStorageApi {
     async getAccount(account) {
         const url = `${this.opts.host}/api/values?account=${account}&project=${this.opts.projectName}`;
         const headers = {
+            ...(this.opts.fetchOptions?.headers || {}),
             Authorization: `Bearer ${this.opts.authToken}`,
         };
-        return fetch(url, { headers }).then((response) => {
+        await this.sp.acquire();
+        return fetch(url, { ...this.opts.fetchOptions, headers })
+            .then(async (response) => {
             if (!response.ok) {
                 throw new Error(`Error fetching account: ${response.statusText}`);
             }
-            return response.json();
+            const data = await response.json();
+            return data;
+        })
+            .finally(() => {
+            this.sp.release();
         });
+    }
+    async getAccountValues(account) {
+        return (await this.getAccount(account).catch())?.data.values || {};
     }
     async updateValues(account, values) {
         const url = `${this.opts.host}/api/values`;
         const headers = {
+            ...(this.opts.fetchOptions?.headers || {}),
             Authorization: `Bearer ${this.opts.authToken}`,
             "Content-Type": "application/json",
         };
@@ -45,10 +59,14 @@ export class AccountStorageApi {
             project: this.opts.projectName,
             values: values,
         });
+        await this.sp.acquire();
         const response = await fetch(url, {
+            ...(this.opts.fetchOptions || {}),
             method: "POST",
             headers,
             body,
+        }).finally(() => {
+            this.sp.release();
         });
         if (!response.ok) {
             throw new Error(`Error updating values: ${response.statusText}`);

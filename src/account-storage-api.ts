@@ -1,7 +1,10 @@
+import fetch, { RequestInit } from "node-fetch";
+import { Semaphore } from "async-mutex";
 export type AccountStorageApiOptions = {
   authToken: string;
   host: string;
   projectName: string;
+  fetchOptions?: RequestInit;
 };
 type AccountApiResponse<T extends { [key: string]: any }> = {
   status: string;
@@ -13,8 +16,9 @@ type AccountApiResponse<T extends { [key: string]: any }> = {
   };
 };
 
-export class AccountStorageApi {
+export class AccountStorageApi<T extends { [key: string]: any }> {
   private opts: AccountStorageApiOptions;
+  private sp = new Semaphore(50);
   constructor(opts: AccountStorageApiOptions) {
     this.opts = opts;
     if (!opts.authToken) {
@@ -37,25 +41,34 @@ export class AccountStorageApi {
     }
   }
 
-  async getAccount<T extends { [key: string]: any }>(account: string): Promise<AccountApiResponse<T>> {
+  async getAccount(account: string): Promise<AccountApiResponse<T>> {
     const url = `${this.opts.host}/api/values?account=${account}&project=${this.opts.projectName}`;
     const headers = {
+      ...(this.opts.fetchOptions?.headers || {}),
       Authorization: `Bearer ${this.opts.authToken}`,
     };
-    return fetch(url, { headers }).then((response) => {
-      if (!response.ok) {
-        throw new Error(`Error fetching account: ${response.statusText}`);
-      }
-      return response.json();
-    });
+    await this.sp.acquire();
+    return fetch(url, { ...this.opts.fetchOptions, headers })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(`Error fetching account: ${response.statusText}`);
+        }
+        const data = await response.json();
+        return data as AccountApiResponse<T>;
+      })
+      .finally(() => {
+        this.sp.release();
+      });
   }
 
-  async updateValues<T extends { [key: string]: any }>(
-    account: string,
-    values: Record<string, any>
-  ): Promise<AccountApiResponse<T>> {
+  async getAccountValues(account: string): Promise<T> {
+    return (await this.getAccount(account).catch())?.data.values || ({} as T);
+  }
+
+  async updateValues(account: string, values: Record<string, any>): Promise<AccountApiResponse<T>> {
     const url = `${this.opts.host}/api/values`;
     const headers = {
+      ...(this.opts.fetchOptions?.headers || {}),
       Authorization: `Bearer ${this.opts.authToken}`,
       "Content-Type": "application/json",
     };
@@ -64,14 +77,18 @@ export class AccountStorageApi {
       project: this.opts.projectName,
       values: values,
     });
+    await this.sp.acquire();
     const response = await fetch(url, {
+      ...(this.opts.fetchOptions || {}),
       method: "POST",
       headers,
       body,
+    }).finally(() => {
+      this.sp.release();
     });
     if (!response.ok) {
       throw new Error(`Error updating values: ${response.statusText}`);
     }
-    return response.json();
+    return response.json() as any;
   }
 }

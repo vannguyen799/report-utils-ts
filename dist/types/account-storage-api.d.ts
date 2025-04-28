@@ -1,7 +1,9 @@
+import { RequestInit } from "node-fetch";
 export type AccountStorageApiOptions = {
     authToken: string;
     host: string;
     projectName: string;
+    fetchOptions?: RequestInit;
 };
 type AccountApiResponse<T extends {
     [key: string]: any;
@@ -14,14 +16,14 @@ type AccountApiResponse<T extends {
         values?: T;
     };
 };
-export declare class AccountStorageApi {
+export declare class AccountStorageApi<T extends {
+    [key: string]: any;
+}> {
     private opts;
+    private sp;
     constructor(opts: AccountStorageApiOptions);
-    getAccount<T extends {
-        [key: string]: any;
-    }>(account: string): Promise<AccountApiResponse<T>>;
-    updateValues<T extends {
-        [key: string]: any;
-    }>(account: string, values: Record<string, any>): Promise<AccountApiResponse<T>>;
+    getAccount(account: string): Promise<AccountApiResponse<T>>;
+    getAccountValues(account: string): Promise<T>;
+    updateValues(account: string, values: Record<string, any>): Promise<AccountApiResponse<T>>;
 }
 export {};
